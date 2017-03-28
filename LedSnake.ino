@@ -1,20 +1,89 @@
 #include "LedControl.h"
 #include "StackArray.h"
 
+// Define interrupt pins
+#define I_LEFT 3
+#define I_UP 2
+#define I_DOWN 18
+#define I_RIGHT 19
 
+// Define vector constants
 #define LEFT 1
 #define UP 2
 #define RIGHT 3
 #define DOWN 4
 #define ON 1
 
-LedControl lc=LedControl(12,11,10,1);
 
+// Program variables
 unsigned long delaytime = 300;
 int moveVector = RIGHT;
 int snake[64][3] = {{1,4,ON},{0,4,ON}};
 int food[2];
-bool reset = false;
+
+bool leftAttached = false;
+bool rightAttached = false;
+bool upAttached = true;
+bool downAttached = true;
+
+LedControl lc=LedControl(12,11,10,1);
+
+
+// This hack was made because my interrupt buttons are not debounced. It was often triggering LOW multiple times, so
+// on each Interrupt i detach it and opposite pin (ex: I_DOWN and I_UP) and attach others if needed.
+// The 'cleaner' method would be to debounce each trigger programatically, but this was a first idea and it worked :)
+// So maybe later.
+
+void handleInterrupts() {
+  if (moveVector == RIGHT || moveVector == LEFT) {
+    detachInterrupt(digitalPinToInterrupt(I_RIGHT));
+    detachInterrupt(digitalPinToInterrupt(I_LEFT));
+    leftAttached = false;
+    rightAttached = false;
+    if (!downAttached) { attachInterrupt(digitalPinToInterrupt(I_DOWN), isr_down, FALLING); };
+    if (!upAttached) { attachInterrupt(digitalPinToInterrupt(I_UP), isr_up, FALLING); };   
+    upAttached = true;
+    downAttached = true;
+  } else if (moveVector == UP || moveVector == DOWN) {
+    detachInterrupt(digitalPinToInterrupt(I_UP));
+    detachInterrupt(digitalPinToInterrupt(I_DOWN));
+    upAttached = false;
+    downAttached = false;
+    if (!rightAttached) { attachInterrupt(digitalPinToInterrupt(I_RIGHT), isr_right, FALLING); };
+    if (!leftAttached) { attachInterrupt(digitalPinToInterrupt(I_LEFT), isr_left, FALLING); };
+    leftAttached = true;
+    rightAttached = true;
+  }
+}
+
+// Define interrupt methods
+void isr_left() {
+  if(moveVector != RIGHT && snake[0][2] != RIGHT) {
+    moveVector = LEFT; 
+    handleInterrupts();
+  }
+}
+
+void isr_right() {
+  if(moveVector != LEFT && snake[0][2] != LEFT) {
+    moveVector = RIGHT;
+    handleInterrupts();
+  }
+}
+
+void isr_up() {
+  if(moveVector != DOWN && snake[0][2] != DOWN) {
+    moveVector = UP;
+    handleInterrupts();
+  }
+}
+
+void isr_down() {
+  if(moveVector != UP && snake[0][2] != UP) {
+    moveVector = DOWN;
+    handleInterrupts();
+  }
+}
 
 // Counts how long is the snake
 int lenSnake() {
@@ -36,7 +105,6 @@ void moveSnake() {
   }
   moveHead();
 }
-
 
 // Moves snakes head one frame 
 void moveHead() {
@@ -100,7 +168,7 @@ void growSnake() {
 }
 
 void endGame() {
-  while(!reset) {
+  while(true) {
     delay(500);
     lc.clearDisplay(0);
     delay(500);
@@ -117,10 +185,13 @@ void setup() {
   lc.setIntensity(0,8);
   lc.clearDisplay(0);
   generateFood();
+
+  // Attach interrupts
+  attachInterrupt(digitalPinToInterrupt(I_UP), isr_up, LOW);
+  attachInterrupt(digitalPinToInterrupt(I_DOWN), isr_down, LOW);
 }
 
 void loop() {
-
     // Debugging
   if (Serial.available() > 0) {
     int recievedChar = Serial.read();
@@ -141,7 +212,7 @@ void loop() {
   }
 
   // If snake hits it's own body then game is over
-  if(checkCollusion()) {
+  if(checkCollision()) {
     endGame();
   }
   
@@ -156,8 +227,6 @@ void loop() {
     lc.setLed(0, snake[i][1],snake[i][0],true);
   }
 
-
-
   // MoveSnake
   moveSnake();
 
@@ -167,8 +236,6 @@ void loop() {
     growSnake();
   }
 
-
-  
   delay(delaytime);
 
 }
