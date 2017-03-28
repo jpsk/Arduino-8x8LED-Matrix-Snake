@@ -1,5 +1,4 @@
 #include "LedControl.h"
-#include "StackArray.h"
 
 // Define interrupt pins
 #define I_LEFT 3
