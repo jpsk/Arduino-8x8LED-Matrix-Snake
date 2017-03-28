@@ -17,15 +17,17 @@
 
 // Program variables
 unsigned long delaytime = 300;
-int moveVector = RIGHT;
+int moveVector = RIGHT;   // Initial move vector
 int snake[64][3] = {{1,4,ON},{0,4,ON}};
-int food[2];
+int food[2]; // x and y location
 
 bool leftAttached = false;
 bool rightAttached = false;
 bool upAttached = true;
 bool downAttached = true;
 
+
+// Assign pins 12 11 10 -> DIN, CLK, CS, and specify that we will be using only 1 8x8 display
 LedControl lc=LedControl(12,11,10,1);
 
 
@@ -33,7 +35,6 @@ LedControl lc=LedControl(12,11,10,1);
 // on each Interrupt i detach it and opposite pin (ex: I_DOWN and I_UP) and attach others if needed.
 // The 'cleaner' method would be to debounce each trigger programatically, but this was a first idea and it worked :)
 // So maybe later.
-
 void handleInterrupts() {
   if (moveVector == RIGHT || moveVector == LEFT) {
     detachInterrupt(digitalPinToInterrupt(I_RIGHT));
@@ -85,7 +86,7 @@ void isr_down() {
   }
 }
 
-// Counts how long is the snake
+// Counts size of a snake
 int lenSnake() {
   int len = 0;
   int pos = 1;
@@ -96,7 +97,7 @@ int lenSnake() {
   return len-1;
 };
 
-// Moves snake by one frame
+// Moves all snake by one step
 void moveSnake() {
   for (int i = lenSnake()-1; i > 0; i--) {
     snake[i][0] = snake[i-1][0];
@@ -106,7 +107,7 @@ void moveSnake() {
   moveHead();
 }
 
-// Moves snakes head one frame 
+// Moves snakes head by one step 
 void moveHead() {
   snake[0][2] = moveVector;
   int snakeHead = snake[0][2];
@@ -129,6 +130,7 @@ void moveHead() {
   }
 }
 
+// Debug method
 void printSnake() {
   Serial.println("---Printing snake:---");
   for(int i = 0; i < lenSnake(); i++) {
@@ -151,7 +153,7 @@ void generateFood() {
   }
 }
 
-bool checkCollusion() {
+bool checkCollision() {
   for(int i=1; i < lenSnake(); i++){
     if (snake[0][0] == snake[i][0] && snake[0][1] == snake[i][1]){
       return true;
@@ -192,7 +194,8 @@ void setup() {
 }
 
 void loop() {
-    // Debugging
+
+  // Debugging
   if (Serial.available() > 0) {
     int recievedChar = Serial.read();
     switch(recievedChar) {
@@ -219,7 +222,7 @@ void loop() {
   // Clear display  
   lc.clearDisplay(0);
 
-  // Set food on Display
+  // Put food on display
   lc.setLed(0, food[1],food[0],true);
 
   // Draw snake 
@@ -227,7 +230,6 @@ void loop() {
     lc.setLed(0, snake[i][1],snake[i][0],true);
   }
 
-  // MoveSnake
   moveSnake();
 
   // If snake eats food then generate new food and grow snake
@@ -237,5 +239,5 @@ void loop() {
   }
 
   delay(delaytime);
-
+  
 }
